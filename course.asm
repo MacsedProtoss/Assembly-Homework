@@ -2,14 +2,20 @@
 .386
 
 DATA SEGMENT USE16
-    OUTPUT1 DB '1.insert scores','$'
-    OUTPUT2 DB '2.search scores','$'
-    ERROROUTPUT DB 'ERROR:INPUT WRONG','$'
-    ERRORINSERTFULL DB 'WARNING: Reached maxed number of students!','$'
-    NOINPUTMESSAGE DB 'ERROR: Unexpected finished input without all three data inputed!','$'
-    ERRORTYPEFULL DB 'WARNING: Reached maxed number of Characters!','$'
+    OUTPUT1 DB '1.insert scores',0AH,0DH,'$'
+    OUTPUT2 DB '2.search scores',0AH,0DH,'$'
+    SELECTONEMESSAGE DB 0AH,0DH,'SELECT ONE, Please input No.,Name,Score; in this formate',0AH,0DH,'$'
+    SELECTTWOMESSAGE DB 0AH,0DH,'SELEC TWO , Please input No.; in this formate',0AH,0DH,'$'
+    BACKHOMEMESSAGE DB 0AH,0DH,'ENTER RETURN, Now back home',0AH,0DH,'$'
 
-    NOTFOUNDMESSAGE DB 'NOT FOUND!',0AH,0DH,'$'
+    ERROROUTPUT DB 0AH,0DH,'ERROR:INPUT WRONG',0AH,0DH,'$'
+    ERRORINSERTFULL DB 0AH,0DH,'WARNING: Reached maxed number of students!',0AH,0DH,'$'
+    NOINPUTMESSAGE DB 0AH,0DH,'ERROR: Unexpected finished input without all three data inputed!',0AH,0DH,'$'
+    ERRORTYPEFULL DB 0AH,0DH,'WARNING: Reached maxed number of Characters! ANY Characters behind wont be recognized',0AH,0DH,'$'
+
+    NOTFOUNDMESSAGE DB ' NOT FOUND!',0AH,0DH,'$'
+    LOOPINPUTSPACE DB ' ','$'
+    BACKSPACE DB 0AH,0DH,'$'
 
     SELECTED DB ?
     INPUTBUF DB 20 DUP(0)
@@ -33,15 +39,9 @@ CODE SEGMENT USE16
         MOV DX,OFFSET OUTPUT1
         MOV AH,9
         INT 21H
-        MOV DL,0AH
-        MOV AH,2
-        INT 21H
 
         MOV DX,OFFSET OUTPUT2
         MOV AH,9
-        INT 21H
-        MOV DL,0AH
-        MOV AH,2
         INT 21H
 
         ;此处完成了输出两个选项的锅
@@ -59,40 +59,25 @@ CODE SEGMENT USE16
             CMP AL,'Q'
             JE EXIT
             
-            MOV DL,0AH
-            MOV AH,2
-            INT 21H
             MOV DX,OFFSET ERROROUTPUT
             MOV AH,9
             INT 21H
-            MOV DL,0AH
-            MOV AH,2
-            INT 21H
+            
             JMP GETOPTION
         ;此处完成了选择一个选项的锅
 
         SELECTONE:
-            MOV DL,0AH
-            MOV AH,2
-            INT 21H
-            MOV DX,OFFSET OUTPUT1
+            
+            MOV DX,OFFSET SELECTONEMESSAGE
             MOV AH,9
             INT 21H
-            MOV DL,0AH
-            MOV AH,2
-            INT 21H
-
+            
             JMP INPUTDATA
 
         SELECTTWO:
-            MOV DL,0AH
-            MOV AH,2
-            INT 21H
-            MOV DX,OFFSET OUTPUT2
+            
+            MOV DX,OFFSET SELECTTWOMESSAGE
             MOV AH,9
-            INT 21H
-            MOV DL,0AH
-            MOV AH,2
             INT 21H
 
             JMP SEARCHDATA
@@ -119,26 +104,41 @@ CODE SEGMENT USE16
                 CMP AL,'Q'
                 JE EXIT
                 ;Q则退出
+                CMP AL,0DH
+                JE BACKHOME
+                ;如果是回车，回到主选单
                 CMP AL,','
                 JE DIGIT
                 ;如果是 , 则跳转单个输入完成
-                CMP AL,0DH
+                CMP AL,';'
                 JNE NORMALINPUT
-                ;如果不是回车，前往正常输入
+                ;如果不是;，前往正常输入
                 CMP INPUTPARAMETERCOUNT,2
                 JNE NOINPUT
-                ;如果是回车但是没输入正确，跳转错误输入
+                ;如果是;但是没输入正确，跳转错误输入
                 JMP DIGIT
-                ;是回车，输入正确
+                ;是;，输入正确
+
+            MAXINPUTININSERT:
+
+                LEA DX,ERRORTYPEFULL
+                MOV AH,9
+                INT 21H
+
+                JMP NEXT0
 
             NORMALINPUT:
-                
+
+                MOV CL,AL
+                MOV AX,[INPUTCOUNT]
+                CMP AX,19
+                JE MAXINPUTININSERT
+
                 MOV BX,0
                 
                 ADD BX,[INPUTCOUNT]
-                MOV INPUTBUF[BX],AL
+                MOV INPUTBUF[BX],CL
                 INC INPUTCOUNT
-                ;TODO 超过20个提示
 
                 JMP NEXT0
             DIGIT:
@@ -194,6 +194,10 @@ CODE SEGMENT USE16
                 INC INPUTLINE
                 MOV INPUTCOUNT,0
 
+                MOV DL,0DH
+                MOV AH,2
+                INT 21H
+
                 MOV AX,INPUTLINE
                 CMP AX,10
                 JL NEXT0
@@ -242,18 +246,32 @@ CODE SEGMENT USE16
                 JE EXIT
                 ;Q则退出
                 CMP AL,0DH
+                JE BACKHOME
+                ;如果是回车，回到主选单
+                CMP AL,';'
                 JNE SEARCHNORMALINPUT
-                ;如果不是回车，前往正常输入
+                ;如果不是;，前往正常输入
                 JE SEARCHINARRAYSTART
 
+            MAXINPUTINSEARCH:
+                LEA DX,ERRORTYPEFULL
+                MOV AH,9
+                INT 21H
+
+                JMP INPUTSEARCHDATA
+
             SEARCHNORMALINPUT:
+
+                MOV CL,AL
+                MOV AX,[INPUTCOUNT]
+                CMP AX,19
+                JE MAXINPUTINSEARCH
                 
                 MOV BX,0
                 
                 ADD BX,[INPUTCOUNT]
-                MOV INPUTBUF[BX],AL
+                MOV INPUTBUF[BX],CL
                 INC INPUTCOUNT
-                ;TODO 超过20个提示
 
                 JMP INPUTSEARCHDATA
 
@@ -310,6 +328,11 @@ CODE SEGMENT USE16
 
             FOUNDIT:
                 INITPRINTPLACE:
+
+                    LEA DX,BACKSPACE
+                    MOV AH,9
+                    INT 21H
+
                     MOV AX,CX
                     DEC AX
                     MOV INPUTLINE,AX
@@ -331,11 +354,21 @@ CODE SEGMENT USE16
                     MOV AH,9
                     INT 21H
 
+                    LEA DX,LOOPINPUTSPACE
+                    MOV AH,9
+                    INT 21H
+                    ;输出空格
+
                 ISLOOPFINISHED:
                     DEC CX
                     CMP CX,0
                     JNE LOOPPRINT
-                    JMP BEGIN
+
+                    LEA DX,BACKSPACE
+                    MOV AH,9
+                    INT 21H
+
+                    JMP SEARCHDATA
 
             ALLNOTFOUND:
                 MOV AX,DATA
@@ -343,9 +376,14 @@ CODE SEGMENT USE16
                 MOV DX,OFFSET NOTFOUNDMESSAGE
                 MOV AH,9
                 INT 21H
-                JMP BEGIN
+                JMP SEARCHDATA
 
-                
+        BACKHOME:
+            LEA DX,BACKHOMEMESSAGE
+            MOV AH,9
+            INT 21H
+            JMP BEGIN
+
             
 CODE ENDS
     END BEGIN
