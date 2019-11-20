@@ -1,2 +1,2 @@
 # Assembly-Homework
-A 8086 assembly project for assembly course
+A 80386 assembly project for assembly course
